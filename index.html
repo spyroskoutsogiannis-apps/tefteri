@@ -1,0 +1,867 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Τεφτέρι Εξόδων</title>
+<meta name="theme-color" content="#2747C9">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Commissioner:wght@400;500;600;700&family=Literata:opsz,wght@7..72,500;7..72,700&display=swap">
+<style>
+/* Layout: ledger tool — capture card on top, month summary, then the day-by-day ledger; two columns on wide screens */
+:root{
+  --bg:#F2F4F8; --surface:#FFFFFF; --ink:#18213A; --muted:#5D6780; --line:#DCE1EB;
+  --accent:#2747C9; --accent-ink:#FFFFFF; --accent-soft:#E5EAFB; --danger:#B3261E; --ok:#1E7A4C; --warn:#9A6200;
+  --f-display:"Literata",Georgia,"Times New Roman",serif;
+  --f-body:"Commissioner","Segoe UI",Roboto,Arial,sans-serif;
+  --r:12px; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1220; --surface:#161B2B; --ink:#E6E9F2; --muted:#98A1B7; --line:#283046;
+  --accent:#8EA4FF; --accent-ink:#0E1220; --accent-soft:#1E2747; --danger:#F28B82; --ok:#6FD3A0; --warn:#F2C26B; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1220; --surface:#161B2B; --ink:#E6E9F2; --muted:#98A1B7; --line:#283046;
+  --accent:#8EA4FF; --accent-ink:#0E1220; --accent-soft:#1E2747; --danger:#F28B82; --ok:#6FD3A0; --warn:#F2C26B; color-scheme:dark}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+button,input,select,textarea{font:inherit;color:inherit}
+.app{max-width:1120px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 48px;display:flex;flex-direction:column;gap:18px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--f-display);font-weight:700;font-size:1.6rem;margin:0;letter-spacing:-.01em}
+h2{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0;font-weight:600}
+.status{font-size:.8rem;color:var(--muted);display:flex;align-items:center;gap:6px;background:none;border:0;cursor:pointer;padding:4px}
+.status i{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.status.ok i{background:var(--ok)} .status.warn i{background:var(--warn)} .status.err i{background:var(--danger)}
+.grid{display:grid;gap:18px;grid-template-columns:1fr}
+@media (min-width:900px){.grid{grid-template-columns:minmax(0,5fr) minmax(0,6fr);align-items:start}.col-left{position:sticky;top:12px}}
+.col{display:flex;flex-direction:column;gap:18px;min-width:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.capture{border-color:var(--accent)}
+.say{display:flex;gap:10px;align-items:center}
+#say{flex:1;min-width:0;font-size:1.15rem;padding:14px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+#say:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+.mic{flex:none;width:58px;height:58px;border-radius:50%;border:0;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;cursor:pointer}
+.mic.live{background:var(--danger)}
+@media (prefers-reduced-motion:no-preference){.mic.live{animation:pulse 1.2s ease-in-out infinite}@keyframes pulse{50%{box-shadow:0 0 0 10px color-mix(in srgb,var(--danger) 25%,transparent)}}}
+.hint{font-size:.84rem;color:var(--muted)}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:600}
+.btn:hover{border-color:var(--accent)}
+.btn:focus-visible,.row:focus-visible,.iconbtn:focus-visible,.mic:focus-visible,.bar:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.danger{color:var(--danger)}
+.btn.danger.armed{background:var(--danger);color:var(--surface);border-color:var(--danger)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.iconbtn{border:1px solid var(--line);background:var(--surface);border-radius:999px;width:38px;height:38px;display:grid;place-items:center;cursor:pointer}
+.preview,.edit,.form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.preview label,.edit label,.form label{display:flex;flex-direction:column;gap:4px;font-size:.75rem;color:var(--muted);font-weight:600;min-width:0}
+.wide{grid-column:1/-1}
+.field{border:1px solid var(--line);border-radius:8px;padding:9px 10px;background:var(--surface);font-size:1rem;color:var(--ink);font-weight:500;width:100%;min-width:0}
+.field.amount{font-variant-numeric:tabular-nums;font-weight:700}
+.guess{font-size:.78rem;color:var(--muted)}
+.actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.total{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.total .big{font-family:var(--f-display);font-size:2.2rem;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.total .meta{color:var(--muted);font-size:.85rem}
+.month{display:flex;align-items:center;gap:8px}
+.month strong{min-width:9.5em;text-align:center;font-weight:600}
+.bars{display:flex;flex-direction:column;gap:4px}
+.bar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:7px 8px;border-radius:8px;cursor:pointer;border:1px solid transparent;background:none;text-align:left;width:100%}
+.bar:hover{background:var(--bg)}
+.bar.on{border-color:var(--accent);background:var(--accent-soft)}
+.bar .name{display:flex;align-items:center;gap:8px;min-width:0;font-weight:500}
+.bar .name span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .amt{font-variant-numeric:tabular-nums;font-weight:600;text-align:right}
+.bar .track{grid-column:1/-1;height:6px;background:var(--bg);border-radius:3px;overflow:hidden}
+.bar .fill{height:100%;border-radius:3px}
+.bar .pct{color:var(--muted);font-weight:400;font-size:.8rem;margin-left:6px}
+.dot{width:10px;height:10px;border-radius:50%;flex:none}
+.day{display:flex;flex-direction:column}
+.dayhead{display:flex;justify-content:space-between;align-items:baseline;padding:10px 4px 6px;border-bottom:1px solid var(--line);font-size:.82rem;color:var(--muted);font-weight:600}
+.dayhead span:last-child{font-variant-numeric:tabular-nums}
+.row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 4px;border:0;border-bottom:1px dashed var(--line);background:none;width:100%;text-align:left;cursor:pointer}
+.row:hover{background:var(--bg)}
+.row .d{display:flex;flex-direction:column;min-width:0}
+.row .d b{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .d small{color:var(--muted);font-size:.78rem}
+.row .a{font-variant-numeric:tabular-nums;font-weight:600}
+.edit{padding:12px 4px 14px;border-bottom:1px dashed var(--line)}
+.edit .actions{grid-column:1/-1}
+.empty{color:var(--muted);text-align:center;padding:26px 10px;display:flex;flex-direction:column;gap:6px}
+.empty b{color:var(--ink);font-weight:600}
+.filter{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:.85rem;color:var(--muted)}
+.linkbtn{background:none;border:0;color:var(--accent);cursor:pointer;font-weight:600;padding:4px}
+.cats{display:flex;flex-direction:column;gap:12px}
+.cat{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.cat textarea{grid-column:1/-1;min-height:64px;resize:vertical;font-size:.88rem;font-weight:400}
+.swatch{width:30px;height:30px;border-radius:50%;border:2px solid var(--surface);outline:1px solid var(--line);cursor:pointer}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;font-size:.9rem;z-index:20;max-width:calc(100% - 32px)}
+.notice{background:var(--accent-soft);border-radius:10px;padding:12px;font-size:.9rem;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px;align-self:flex-start}
+.tab{border:0;background:none;padding:8px 20px;border-radius:999px;font-weight:600;cursor:pointer;color:var(--muted)}
+.tab.on{background:var(--accent);color:var(--accent-ink)}
+.tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.cmp{display:flex;flex-direction:column;gap:2px;font-size:.84rem;color:var(--muted)}
+.delta{font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.delta.up{color:var(--warn)} .delta.down{color:var(--ok)}
+.chart{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:3px;height:170px}
+.chart .c{display:flex;flex-direction:column;align-items:stretch;gap:4px;cursor:pointer;background:none;border:0;padding:0;min-width:0;border-radius:6px}
+.chart .c:hover{background:var(--bg)}
+.chart .c:focus-visible{outline:2px solid var(--accent)}
+.chart .bb{flex:1;display:flex;gap:2px;align-items:flex-end;justify-content:center}
+.chart .b{width:40%;max-width:14px;border-radius:3px 3px 0 0}
+.chart .b.cur{background:var(--accent)} .chart .b.prev{background:var(--line)}
+.chart small{font-size:.66rem;color:var(--muted);text-align:center;white-space:nowrap;overflow:hidden}
+.legend{display:flex;gap:14px;font-size:.78rem;color:var(--muted);flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.rank{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.rank li{display:grid;grid-template-columns:1.8em auto minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 2px;border-bottom:1px dashed var(--line)}
+.rank .n{color:var(--muted);font-variant-numeric:tabular-nums;font-size:.85rem;text-align:right}
+.rank .d{display:flex;flex-direction:column;min-width:0}
+.rank .d b{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rank .d small{color:var(--muted);font-size:.78rem}
+.rank .a{font-variant-numeric:tabular-nums;font-weight:600}
+.mtop{display:flex;flex-direction:column;gap:6px;padding:10px 0;border-bottom:1px solid var(--line)}
+.mtop:last-child{border-bottom:0}
+.mtop .h{display:flex;justify-content:space-between;gap:8px;font-weight:600;flex-wrap:wrap}
+.mtop .h span:last-child{font-variant-numeric:tabular-nums;color:var(--muted);font-weight:500}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chipc{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:.8rem;max-width:100%}
+.chipc b{font-weight:600;font-variant-numeric:tabular-nums}
+.chipc .n{color:var(--muted);font-variant-numeric:tabular-nums}
+.bar .sub{grid-column:1/-1;font-size:.76rem;color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){.bar .fill{transition:width .35s ease}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Τεφτέρι Εξόδων</h1>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="status" id="status" type="button"><i></i><span>Τοπικά</span></button>
+      <button class="iconbtn" id="openSettings" aria-label="Ρυθμίσεις" title="Ρυθμίσεις">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="notice" id="notice" hidden><span>Ο συγχρονισμός με το Google Sheet δεν έχει ρυθμιστεί. Τα έξοδα κρατιούνται μόνο σε αυτή τη συσκευή.</span><button class="btn" id="goSync" type="button">Ρύθμιση</button></div>
+
+  <div class="tabs" role="tablist" id="tabs">
+    <button class="tab on" id="tabM" role="tab" aria-selected="true" type="button">Μήνας</button>
+    <button class="tab" id="tabY" role="tab" aria-selected="false" type="button">Έτος</button>
+  </div>
+
+  <div class="grid" id="main">
+    <div class="col col-left">
+      <section class="panel capture" aria-label="Νέα δαπάνη">
+        <h2>Νέα δαπάνη</h2>
+        <form class="say" id="sayForm" autocomplete="off">
+          <input id="say" type="text" placeholder="π.χ. καφές 2,5 ευρώ" enterkeyhint="done" aria-label="Πείτε ή γράψτε τη δαπάνη">
+          <button class="mic" id="mic" type="button" aria-label="Μιλήστε">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+          </button>
+        </form>
+        <div class="hint" id="micHint">Πατήστε το μικρόφωνο και πείτε π.χ. «σούπερ μάρκετ 43 και 20» ή «χθες ταξί δώδεκα ευρώ».</div>
+        <div id="previewBox" hidden>
+          <div class="preview">
+            <label class="wide">Περιγραφή<input class="field" id="pDesc" type="text"></label>
+            <label>Ποσό (€)<input class="field amount" id="pAmount" type="text" inputmode="decimal"></label>
+            <label>Ημερομηνία<input class="field" id="pDate" type="date"></label>
+            <label class="wide">Κατηγορία<select class="field" id="pCat"></select></label>
+          </div>
+          <div class="guess" id="pGuess" style="margin-top:8px"></div>
+          <div class="actions" style="margin-top:10px">
+            <button class="btn" id="pClear" type="button">Καθαρισμός</button>
+            <button class="btn primary" id="pSave" type="button">Καταγραφή</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" aria-label="Σύνοψη μήνα">
+        <div class="month">
+          <button class="iconbtn" id="prevM" aria-label="Προηγούμενος μήνας">‹</button>
+          <strong id="monthName"></strong>
+          <button class="iconbtn" id="nextM" aria-label="Επόμενος μήνας">›</button>
+        </div>
+        <div class="total">
+          <span class="big" id="monthTotal">0,00 €</span>
+          <span class="meta" id="monthMeta"></span>
+        </div>
+        <div class="cmp" id="monthCmp"></div>
+        <div class="bars" id="bars"></div>
+      </section>
+
+      <section class="panel" aria-label="Μεγαλύτερες δαπάνες μήνα">
+        <h2>Οι 10 μεγαλύτερες δαπάνες του μήνα</h2>
+        <ol class="rank" id="top10m"></ol>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="panel" aria-label="Καταχωρίσεις">
+        <div class="filter"><h2>Καταχωρίσεις</h2><span id="filterInfo"></span></div>
+        <div id="list"></div>
+        <div class="actions">
+          <button class="btn" id="expMonth" type="button">Εξαγωγή μήνα (CSV)</button>
+          <button class="btn" id="expAll" type="button">Εξαγωγή όλων</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="grid" id="yearView" hidden>
+    <div class="col">
+      <section class="panel" aria-label="Σύνοψη έτους">
+        <div class="month">
+          <button class="iconbtn" id="prevY" aria-label="Προηγούμενο έτος">‹</button>
+          <strong id="yearName"></strong>
+          <button class="iconbtn" id="nextY" aria-label="Επόμενο έτος">›</button>
+        </div>
+        <div class="total">
+          <span class="big" id="yearTotal">0,00 €</span>
+          <span class="meta" id="yearMeta"></span>
+        </div>
+        <div class="cmp" id="yearCmp"></div>
+        <div class="chart" id="chart" aria-label="Έξοδα ανά μήνα"></div>
+        <div class="legend"><span><i style="background:var(--accent)"></i><span id="lgCur"></span></span><span><i style="background:var(--line)"></i><span id="lgPrev"></span></span></div>
+      </section>
+      <section class="panel" aria-label="Κατηγορίες έτους">
+        <h2>Κατηγορίες του έτους</h2>
+        <div class="bars" id="yBars"></div>
+      </section>
+      <section class="panel" aria-label="Σύγκριση ετών">
+        <h2>Όλα τα έτη</h2>
+        <div id="years"></div>
+      </section>
+    </div>
+    <div class="col">
+      <section class="panel" aria-label="Μεγαλύτερες δαπάνες έτους">
+        <h2>Οι 10 μεγαλύτερες δαπάνες του έτους</h2>
+        <ol class="rank" id="top10y"></ol>
+      </section>
+      <section class="panel" aria-label="Κορυφαίες κατηγορίες ανά μήνα">
+        <h2>Οι 3 μεγαλύτερες κατηγορίες ανά μήνα</h2>
+        <div id="top3m"></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="col" id="settings" hidden>
+    <section class="panel" aria-label="Συγχρονισμός">
+      <div class="filter"><h2>Συγχρονισμός με Google Sheet</h2><button class="linkbtn" id="closeSettings" type="button">Κλείσιμο</button></div>
+      <p class="guess" style="margin:0">Βάλτε τη διεύθυνση της εφαρμογής ιστού και τον κωδικό συγχρονισμού που σας έδωσε η setup() του Google Apps Script. Τα ίδια στοιχεία μπαίνουν σε κινητό και laptop.</p>
+      <div class="form">
+        <label class="wide">Διεύθυνση εφαρμογής ιστού<input class="field" id="cUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></label>
+        <label class="wide">Κωδικός συγχρονισμού<input class="field" id="cToken" type="text" autocomplete="off" spellcheck="false"></label>
+      </div>
+      <div class="guess" id="cResult"></div>
+      <div class="actions"><button class="btn primary" id="cSave" type="button">Αποθήκευση και σύνδεση</button></div>
+    </section>
+    <section class="panel" aria-label="Κατηγορίες">
+      <h2>Κατηγορίες και λέξεις-κλειδιά</h2>
+      <p class="guess" style="margin:0">Κάθε κατηγορία αναγνωρίζεται από τις λέξεις της, χωρισμένες με κόμμα. Τόνοι και κεφαλαία δεν παίζουν ρόλο. Όταν διορθώνετε την κατηγορία μιας δαπάνης, η εφαρμογή μαθαίνει τη λέξη. Ό,τι δεν αναγνωρίζεται πηγαίνει στα «Λοιπά».</p>
+      <div class="cats" id="cats"></div>
+      <div class="actions">
+        <button class="btn" id="addCat" type="button">Νέα κατηγορία</button>
+        <button class="btn primary" id="saveCats" type="button">Αποθήκευση κατηγοριών</button>
+      </div>
+    </section>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const COLORS=["#E0A030","#D2603A","#3A8FB7","#6A5ACD","#2E9E6B","#C2477E","#8C6D46","#4C9A9A","#5B7F2B","#7A869A"];
+const DEFAULT_CATS=[
+  {id:"super",name:"Σούπερ μάρκετ",color:0,kw:"σούπερ μάρκετ, σουπερμάρκετ, σούπερ, σκλαβενίτης, βασιλόπουλος, ΑΒ, lidl, λιντλ, μασούτης, my market, μάι μάρκετ, κρητικός, γαλαξίας, φούρνος, ψωμί, μανάβης, λαϊκή, χασάπης, κρέας, ψάρια, ψαράς, γάλα, φρούτα, λαχανικά, ψώνια, περίπτερο"},
+  {id:"food",name:"Καφές/Εστίαση",color:1,kw:"καφές, φρέντο, εσπρέσο, καπουτσίνο, φίλτρου, καφετέρια, φαγητό, εστιατόριο, ταβέρνα, ψαροταβέρνα, σουβλάκι, σουβλάκια, γύρος, πίτσα, ντελίβερι, delivery, efood, wolt, μπύρα, ποτό, κρασί, μπαρ, γλυκό, ζαχαροπλαστείο, τυρόπιτα, κουλούρι, σάντουιτς, κρέπα, πρωινό, μεσημεριανό, βραδινό, έξοδος"},
+  {id:"move",name:"Μεταφορές/Καύσιμα",color:2,kw:"βενζίνη, καύσιμα, πετρέλαιο κίνησης, diesel, αμόλυβδη, διόδια, ταξί, uber, μετρό, λεωφορείο, εισιτήριο, πάρκινγκ, στάθμευση, πλύσιμο, σέρβις, λάστιχα, κτεο, συνεργείο, ασφάλεια αυτοκινήτου, τέλη κυκλοφορίας, οασα"},
+  {id:"bills",name:"Λογαριασμοί",color:3,kw:"ρεύμα, ΔΕΗ, νερό, ΕΥΔΑΠ, τηλέφωνο, κινητό, ίντερνετ, internet, cosmote, vodafone, nova, θέρμανση, πετρέλαιο, φυσικό αέριο, αέριο, κοινόχρηστα, ενοίκιο, νοίκι, λογαριασμός"},
+  {id:"subs",name:"Συνδρομές",color:8,kw:"συνδρομή, συνδρομές, netflix, spotify, disney, youtube premium, apple music, icloud, google one, amazon prime, prime video, hbo, cosmote tv, vodafone tv, chatgpt, claude, microsoft 365, office 365, dropbox, audible, kindle unlimited"},
+  {id:"health",name:"Υγεία/Φαρμακείο",color:4,kw:"φαρμακείο, φάρμακα, φάρμακο, γιατρός, γιατρό, οδοντίατρο, οδοντίατρος, εξετάσεις, μικροβιολογικό, νοσοκομείο, φυσιοθεραπεία, οπτικά, γυαλιά, βιταμίνες"},
+  {id:"clothes",name:"Ένδυση",color:5,kw:"ρούχα, παπούτσια, παπούτσι, μπλούζα, πουκάμισο, παντελόνι, φόρεμα, μπουφάν, παλτό, κάλτσες, γραβάτα, κοστούμι, zara, καθαριστήριο"},
+  {id:"fun",name:"Διασκέδαση",color:6,kw:"σινεμά, κινηματογράφο, θέατρο, συναυλία, βιβλίο, βιβλία, παιχνίδι, ταξίδι, ξενοδοχείο, εισιτήρια, γυμναστήριο, δώρο, δώρα"},
+  {id:"home",name:"Σπίτι",color:7,kw:"έπιπλα, ikea, καθαριστικά, απορρυπαντικό, ηλεκτρικά, εργαλεία, επισκευή, υδραυλικός, ηλεκτρολόγος, καθαρίστρια, λάμπα, λάμπες, κουζινικά"},
+  {id:"other",name:"Λοιπά",color:9,kw:""}
+];
+const MONTHS=["Ιανουάριος","Φεβρουάριος","Μάρτιος","Απρίλιος","Μάιος","Ιούνιος","Ιούλιος","Αύγουστος","Σεπτέμβριος","Οκτώβριος","Νοέμβριος","Δεκέμβριος"];
+const MONTHS_GEN=["Ιανουαρίου","Φεβρουαρίου","Μαρτίου","Απριλίου","Μαΐου","Ιουνίου","Ιουλίου","Αυγούστου","Σεπτεμβρίου","Οκτωβρίου","Νοεμβρίου","Δεκεμβρίου"];
+const WEEKDAYS=["Κυριακή","Δευτέρα","Τρίτη","Τετάρτη","Πέμπτη","Παρασκευή","Σάββατο"];
+const money=new Intl.NumberFormat("el-GR",{style:"currency",currency:"EUR"});
+const $=id=>document.getElementById(id);
+
+/* ---------- text helpers ---------- */
+const norm=s=>String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/ς/g,"σ");
+const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const fromYmd=s=>{const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d)};
+const splitKw=s=>String(s||"").split(",").map(x=>x.trim()).filter(Boolean);
+const newId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+
+const NUMW={μηδεν:0,ενα:1,ενασ:1,μια:1,δυο:2,τρια:3,τρεισ:3,τεσσερα:4,τεσσερισ:4,πεντε:5,εξι:6,επτα:7,εφτα:7,οκτω:8,οχτω:8,εννεα:9,εννια:9,δεκα:10,εντεκα:11,ενδεκα:11,δωδεκα:12,δεκατρια:13,δεκατεσσερα:14,δεκαπεντε:15,δεκαεξι:16,δεκαεπτα:17,δεκαεφτα:17,δεκαοκτω:18,δεκαοχτω:18,δεκαεννεα:19,δεκαεννια:19,εικοσι:20,τριαντα:30,σαραντα:40,πενηντα:50,εξηντα:60,εβδομηντα:70,ογδοντα:80,ενενηντα:90,εκατο:100,εκατον:100,διακοσια:200,τριακοσια:300,τετρακοσια:400,πεντακοσια:500,εξακοσια:600,επτακοσια:700,εφτακοσια:700,οκτακοσια:800,οχτακοσια:800,εννιακοσια:900,εννεακοσια:900,χιλια:1000};
+const HALVES={εναμιση:1.5,δυομιση:2.5,τριαμιση:3.5,τρεισημιση:3.5,τεσσερισημιση:4.5,τεσσεραμιση:4.5,πενταμιση:5.5,πεντεμιση:5.5,εξιμιση:6.5,εξημιση:6.5,εφταμιση:7.5,επταμιση:7.5,οχταμιση:8.5,οκταμιση:8.5,οχτωμιση:8.5,εννιαμιση:9.5,δεκαμιση:10.5};
+const DATEW=["σημερα","χθεσ","χτεσ","προχθεσ","προχτεσ","δευτερα","τριτη","τεταρτη","πεμπτη","παρασκευη","σαββατο","κυριακη","μηνα"];
+const STOP=new Set(["και","για","το","τον","την","τη","τα","του","τησ","στο","στη","στην","στισ","στον","στα","ευρω","ευρο","euro","eur","λεπτα","λεπτο","μισο","μιση","μισι","με","απο",...DATEW]);
+const WDN=["κυριακη","δευτερα","τριτη","τεταρτη","πεμπτη","παρασκευη","σαββατο"];
+const L="(?<![\\p{L}\\d])", R="(?![\\p{L}\\d])";
+
+function wordsToDigits(n){
+  const toks=n.split(/\s+/).filter(Boolean), out=[];
+  let acc=null;
+  const flush=()=>{if(acc!==null){out.push(String(acc));acc=null}};
+  for(const t of toks){
+    if(t in HALVES){acc=(acc||0)+HALVES[t];flush();continue}
+    if(t in NUMW){acc=(acc||0)+NUMW[t];continue}
+    flush();out.push(t);
+  }
+  flush();
+  return out.join(" ");
+}
+function prepare(text){
+  let n=norm(text).replace(/€/g," ευρω ").replace(/(\d)\.(\d{3})(?!\d)/g,"$1$2").replace(/(\d),(\d)/g,"$1.$2")
+    .replace(/[!?;:"«»()]/g," ").replace(/(\p{L})[.,]/gu,"$1 ").replace(/\s+/g," ").trim();
+  n=n.replace(new RegExp(L+"(ευρο|euro|eur|ε)"+R,"gu"),"ευρω").replace(/μισι/g,"μιση");
+  return wordsToDigits(n);
+}
+function parseDate(n){
+  const today=new Date();today.setHours(0,0,0,0);
+  const d=new Date(today);let m,rest=n;
+  const cut=re=>{rest=rest.replace(re," ")};
+  if((m=n.match(new RegExp(L+"(προχθεσ|προχτεσ)"+R,"u")))){d.setDate(d.getDate()-2);cut(m[0])}
+  else if((m=n.match(new RegExp(L+"(χθεσ|χτεσ)"+R,"u")))){d.setDate(d.getDate()-1);cut(m[0])}
+  else if((m=n.match(/(?<![\d.])(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?(?![\d.])/))){
+    const y=m[3]?(m[3].length===2?2000+ +m[3]:+m[3]):today.getFullYear();
+    const c=new Date(y,+m[2]-1,+m[1]);
+    if(!m[3]&&c>today)c.setFullYear(y-1);
+    if(!isNaN(c))d.setTime(c.getTime());
+    cut(m[0]);
+  }else if((m=n.match(new RegExp(L+"(?:τη|την|το)?\\s*("+WDN.join("|")+")"+R,"u")))){
+    const wd=WDN.indexOf(m[1]);d.setDate(d.getDate()-(today.getDay()-wd+7)%7);cut(m[0]);
+  }else if((m=n.match(/στισ\s+(\d{1,2})(?:\s+του\s+μηνα)?(?![\d.])/))){
+    const others=n.replace(m[0]," ").match(/\d/);
+    const day=+m[1];
+    if(others&&day>=1&&day<=31){
+      const c=new Date(today.getFullYear(),today.getMonth(),day);
+      if(c>today)c.setMonth(c.getMonth()-1);
+      d.setTime(c.getTime());cut(m[0]);
+    }
+  }
+  rest=rest.replace(new RegExp(L+"σημερα"+R,"gu")," ");
+  return {date:ymd(d),rest};
+}
+function parseAmount(n){
+  let m;
+  if((m=n.match(/(?<![\d.])(\d+(?:\.\d+)?)\s+(?:ευρω\s+)?(?:και\s+)?(\d{1,2})\s*λεπτ/)))return +m[1]+ +m[2]/100;
+  if((m=n.match(/(?<![\d.])(\d+)\s*ευρω\s*(?:και\s+)?(\d{1,2})(?![\d.])/)))return +m[1]+ +m[2]/100;
+  if((m=n.match(/(?<![\d.])(\d+(?:\.\d+)?)\s*(?:ευρω\s*)?και\s+μισ[οη]/)))return +m[1]+0.5;
+  if((m=n.match(/(?<![\d.])(\d+)\s+και\s+(\d{2})(?![\d.])/)))return +m[1]+ +m[2]/100;
+  if((m=n.match(/(?<![\d.])(\d{1,2})\s*λεπτ/)))return +m[1]/100;
+  const eu=[...n.matchAll(/(?<![\d.])(\d+(?:\.\d+)?)\s*ευρω/g)];
+  if(eu.length)return +eu[eu.length-1][1];
+  const all=[...n.matchAll(/\d+(?:\.\d+)?/g)];
+  return all.length?+all[all.length-1][0]:null;
+}
+function stemMatch(w,k){
+  if(w===k)return true;
+  if(k.length<4)return false;
+  const stem=k.slice(0,k.length-(k.length>5?2:1));
+  return w.startsWith(stem)&&w.length>=stem.length;
+}
+function guessCategory(n){
+  const toks=n.split(/\s+/);let best=null,score=0;
+  for(const c of state.cats){
+    for(const raw of c.kw){
+      const k=norm(raw).trim();if(!k)continue;
+      let s=0;
+      if(k.includes(" ")){if((" "+n+" ").includes(" "+k+" "))s=k.length+5}
+      else if(toks.includes(k))s=k.length+10;
+      else if(toks.some(t=>stemMatch(t,k)))s=k.length;
+      if(s>score){score=s;best=c.id}
+    }
+  }
+  return best;
+}
+function describe(text){
+  const toks=text.replace(/€/g," ").split(/\s+/).filter(Boolean);
+  const keep=toks.filter(t=>{
+    const n=norm(t).replace(/[^\p{L}\d]/gu,"").replace(/μισι/g,"μιση");
+    if(!n)return false;
+    if(/\d/.test(n))return false;
+    return !(STOP.has(n)||n in NUMW||n in HALVES);
+  }).map(t=>t.replace(/^[^\p{L}\d]+|[^\p{L}\d]+$/gu,""));
+  const s=keep.join(" ").trim();
+  return s?s.charAt(0).toUpperCase()+s.slice(1):"";
+}
+function parse(text){
+  const n=prepare(text);
+  const {date,rest}=parseDate(n);
+  const amount=parseAmount(rest);
+  return {date,amount:amount===null?null:Math.round(amount*100)/100,catId:guessCategory(rest),desc:describe(text)};
+}
+
+/* ---------- state & local storage ---------- */
+const LS="tefteri.v1";
+const saved=(()=>{try{return JSON.parse(localStorage.getItem(LS))||{}}catch{return {}}})();
+const state={
+  cats:Array.isArray(saved.cats)&&saved.cats.length?saved.cats:DEFAULT_CATS.map(c=>({...c,kw:splitKw(c.kw)})),
+  expenses:Array.isArray(saved.expenses)?saved.expenses:[],
+  queue:Array.isArray(saved.queue)?saved.queue:[],
+  conf:saved.conf||{url:"",token:""},
+  month:(()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),1)})(),
+  view:"m",year:new Date().getFullYear(),
+  filter:null,openId:null,guess:null,syncing:false,again:false,sync:"local"
+};
+function persist(){
+  try{localStorage.setItem(LS,JSON.stringify({cats:state.cats,expenses:state.expenses,queue:state.queue,conf:state.conf}))}
+  catch{toast("Η αποθήκευση στη συσκευή απέτυχε")}
+}
+if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
+
+const catById=id=>state.cats.find(c=>c.id===id)||state.cats.find(c=>c.id==="other")||state.cats[state.cats.length-1];
+const colorOf=c=>COLORS[(c&&c.color)%COLORS.length];
+
+/* ---------- sync with Google Sheet ---------- */
+function enqueue(op){state.queue.push(JSON.parse(JSON.stringify(op)));applyLocal(op);persist();render();sync()}
+function applyLocal(op){
+  const i=op.exp?state.expenses.findIndex(x=>x.id===op.exp.id):state.expenses.findIndex(x=>x.id===op.id);
+  if(op.op==="add"&&i<0)state.expenses.push({...op.exp});
+  else if(op.op==="update"&&i>=0)state.expenses[i]={...state.expenses[i],...op.exp};
+  else if(op.op==="delete"&&i>=0)state.expenses.splice(i,1);
+}
+function fromServer(x){
+  const byName=state.cats.find(c=>c.name===x.catName);
+  return {id:x.id,date:x.date,desc:x.desc,amount:x.amount,createdAt:x.createdAt,catId:byName?byName.id:(state.cats.some(c=>c.id===x.catId)?x.catId:"other")};
+}
+const toServer=x=>({...x,catName:catById(x.catId).name});
+function setStatus(s){
+  state.sync=s;
+  const el=$("status"),pending=state.queue.length;
+  const map={local:["","Μόνο στη συσκευή"],ok:["ok","Συγχρονισμένο"],busy:["warn","Συγχρονισμός…"],offline:["warn",`Εκτός σύνδεσης${pending?` · ${pending} σε αναμονή`:""}`],badtoken:["err","Λάθος κωδικός"],error:["err","Σφάλμα συγχρονισμού"]};
+  const [cls,txt]=map[s]||map.local;
+  el.className="status "+cls;el.querySelector("span").textContent=txt;
+  $("notice").hidden=!!(state.conf.url&&state.conf.token);
+}
+async function sync(){
+  if(!state.conf.url||!state.conf.token){setStatus("local");return false}
+  if(state.syncing){state.again=true;return false}
+  state.syncing=true;setStatus("busy");
+  const ops=state.queue.slice();
+  let ok=false;
+  try{
+    const res=await fetch(state.conf.url,{method:"POST",body:JSON.stringify({token:state.conf.token,ops:ops.map(o=>o.exp?{...o,exp:toServer(o.exp)}:o)})});
+    const j=await res.json();
+    if(!j.ok){setStatus(j.error==="bad_token"?"badtoken":"error");return false}
+    state.queue.splice(0,ops.length);
+    const pendingCats=state.queue.some(o=>o.op==="cats");
+    if(Array.isArray(j.cats)&&j.cats.length&&!pendingCats){
+      state.cats=j.cats.map(c=>({...c,kw:[...(c.kw||[])]}));
+      if(!state.cats.some(c=>c.id==="other"))state.cats.push({id:"other",name:"Λοιπά",color:9,kw:[]});
+    }else if(!j.cats&&!pendingCats){state.queue.push({op:"cats",cats:state.cats});state.again=true}
+    state.expenses=(j.expenses||[]).map(fromServer);
+    for(const op of state.queue)applyLocal(op);
+    persist();render();setStatus("ok");ok=true;
+  }catch{setStatus("offline")}
+  finally{state.syncing=false;if(state.again){state.again=false;setTimeout(sync,300)}}
+  return ok;
+}
+window.addEventListener("online",sync);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")sync()});
+setInterval(()=>{if(document.visibilityState==="visible")sync()},120000);
+
+/* ---------- UI helpers ---------- */
+function toast(msg){const t=$("toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2400)}
+function fillCatSelect(sel,val){
+  sel.textContent="";
+  for(const c of state.cats){const o=document.createElement("option");o.value=c.id;o.textContent=c.name;sel.appendChild(o)}
+  sel.value=val&&state.cats.some(c=>c.id===val)?val:"other";
+}
+const parseMoneyInput=v=>{const x=parseFloat(String(v).replace(/\s|€/g,"").replace(/\.(?=\d{3}(\D|$))/g,"").replace(",","."));return isFinite(x)?Math.round(x*100)/100:null};
+const fmtInput=v=>v===null||v===undefined?"":v.toFixed(2).replace(".",",");
+
+/* ---------- voice ---------- */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let rec=null;
+if(!SR){$("micHint").textContent="Αυτός ο browser δεν έχει αναγνώριση φωνής. Χρησιμοποιήστε το μικρόφωνο του πληκτρολογίου ή γράψτε τη δαπάνη.";$("mic").hidden=true}
+$("mic").onclick=()=>{
+  if(rec){rec.stop();return}
+  rec=new SR();rec.lang="el-GR";rec.interimResults=true;rec.maxAlternatives=1;rec.continuous=false;
+  rec.onresult=e=>{let t="";for(const r of e.results)t+=r[0].transcript;$("say").value=t.trim();updatePreview()};
+  rec.onerror=e=>{toast(e.error==="not-allowed"||e.error==="service-not-allowed"?"Επιτρέψτε την πρόσβαση στο μικρόφωνο από τις ρυθμίσεις του Chrome":e.error==="no-speech"?"Δεν ακούστηκε τίποτα. Δοκιμάστε ξανά.":e.error==="network"?"Η αναγνώριση φωνής θέλει σύνδεση στο internet":"Η αναγνώριση φωνής απέτυχε")};
+  rec.onend=()=>{rec=null;$("mic").classList.remove("live");$("mic").setAttribute("aria-label","Μιλήστε")};
+  try{rec.start();$("mic").classList.add("live");$("mic").setAttribute("aria-label","Τέλος ομιλίας")}catch{rec=null}
+};
+
+/* ---------- capture ---------- */
+function updatePreview(){
+  const text=$("say").value.trim();
+  $("previewBox").hidden=!text;
+  if(!text)return;
+  const p=parse(text);state.guess=p.catId;
+  $("pDesc").value=p.desc||(p.catId?catById(p.catId).name:"");
+  $("pAmount").value=fmtInput(p.amount);
+  $("pDate").value=p.date;
+  fillCatSelect($("pCat"),p.catId||"other");
+  $("pGuess").textContent=p.amount===null?"Δεν βρέθηκε ποσό. Συμπληρώστε το παραπάνω.":
+    p.catId?"Η κατηγορία βρέθηκε από λέξη-κλειδί. Αλλάξτε την αν χρειάζεται.":"Δεν αναγνωρίστηκε κατηγορία, μπήκε στα «Λοιπά». Αν την αλλάξετε, η εφαρμογή θα τη θυμάται.";
+}
+function saveNew(){
+  const amount=parseMoneyInput($("pAmount").value);
+  if(amount===null||amount<=0){toast("Συμπληρώστε ποσό");$("pAmount").focus();return}
+  const catId=$("pCat").value, desc=$("pDesc").value.trim()||catById(catId).name, date=$("pDate").value||ymd(new Date());
+  const exp={id:newId(),desc,amount,catId,date,text:$("say").value.trim(),createdAt:Date.now()};
+  if(catId!==state.guess&&catId!=="other")learn(desc,catId);
+  enqueue({op:"add",exp});
+  toast(`Καταγράφηκε: ${money.format(amount)} · ${catById(catId).name}`);
+  $("say").value="";updatePreview();
+  const d=fromYmd(date);
+  if(d.getMonth()!==state.month.getMonth()||d.getFullYear()!==state.month.getFullYear()){state.month=new Date(d.getFullYear(),d.getMonth(),1);render()}
+}
+function learn(desc,catId){
+  const word=desc.split(/\s+/).map(w=>w.replace(/[^\p{L}\d]/gu,"")).find(w=>{const n=norm(w);return n.length>=3&&!STOP.has(n)});
+  if(!word)return;
+  const n=norm(word);
+  if(guessCategory(n)===catId)return;
+  for(const c of state.cats)c.kw=c.kw.filter(k=>norm(k)!==n);
+  catById(catId).kw.push(word.toLowerCase());
+  state.queue=state.queue.filter(o=>o.op!=="cats");
+  state.queue.push({op:"cats",cats:JSON.parse(JSON.stringify(state.cats))});
+  persist();
+}
+
+/* ---------- summary & list ---------- */
+function monthItems(){
+  const m=state.month, start=ymd(m), end=ymd(new Date(m.getFullYear(),m.getMonth()+1,0));
+  return state.expenses.filter(x=>x.date>=start&&x.date<=end).sort((a,b)=>b.date.localeCompare(a.date)||(b.createdAt||0)-(a.createdAt||0));
+}
+/* ---------- analysis helpers ---------- */
+const MONTHS_SHORT=["Ιαν","Φεβ","Μαρ","Απρ","Μάι","Ιούν","Ιούλ","Αύγ","Σεπ","Οκτ","Νοε","Δεκ"];
+const inRange=(s,e)=>state.expenses.filter(x=>x.date>=s&&x.date<=e);
+const monthRange=(y,m)=>[ymd(new Date(y,m,1)),ymd(new Date(y,m+1,0))];
+const yearItems=y=>inRange(`${y}-01-01`,`${y}-12-31`);
+const sumOf=a=>a.reduce((s,x)=>s+x.amount,0);
+function byCat(items){
+  const by={};for(const x of items){const id=catById(x.catId).id;by[id]=(by[id]||0)+x.amount}
+  return Object.entries(by).sort((a,b)=>b[1]-a[1]);
+}
+const plural=n=>`${n} ${n===1?"καταχώριση":"καταχωρίσεις"}`;
+function deltaHtml(cur,base){
+  const d=cur-base,p=d/base*100;
+  const cls=d>0.005?"up":d<-0.005?"down":"";
+  const arrow=cls==="up"?"▲":cls==="down"?"▼":"=";
+  return `<span class="delta ${cls}">${arrow} ${Math.abs(p).toFixed(0)}% (${d>0?"+":d<0?"−":""}${money.format(Math.abs(d))})</span>`;
+}
+function cmpLine(box,label,cur,base){
+  if(!base)return;
+  const s=document.createElement("span");
+  s.append(document.createTextNode(label+": "));
+  s.insertAdjacentHTML("beforeend",deltaHtml(cur,base));
+  box.appendChild(s);
+}
+function rankList(el,items){
+  el.textContent="";
+  const top=[...items].sort((a,b)=>b.amount-a.amount).slice(0,10);
+  if(!top.length){el.innerHTML=`<li style="display:block;border:0" class="guess">Δεν υπάρχουν ακόμη δαπάνες.</li>`;return}
+  top.forEach((x,i)=>{
+    const c=catById(x.catId),d=fromYmd(x.date);
+    const li=document.createElement("li");
+    li.innerHTML=`<span class="n">${i+1}.</span><i class="dot"></i><span class="d"><b></b><small></small></span><span class="a"></span>`;
+    li.querySelector(".dot").style.background=colorOf(c);
+    li.querySelector("b").textContent=x.desc;
+    li.querySelector("small").textContent=`${d.getDate()} ${MONTHS_GEN[d.getMonth()]} ·${c.name}`;
+    li.querySelector(".a").textContent=money.format(x.amount);
+    el.appendChild(li);
+  });
+}
+function catBars(el,rows,total,prevBy){
+  el.textContent="";
+  if(!rows.length){const e=document.createElement("div");e.className="guess";e.textContent="Τα σύνολα ανά κατηγορία θα εμφανιστούν εδώ.";el.appendChild(e);return []}
+  const max=rows[0][1],out=[];
+  for(const [id,sum] of rows){
+    const c=catById(id);
+    const b=document.createElement("button");b.type="button";b.className="bar";
+    b.innerHTML=`<span class="name"><i class="dot"></i><span></span></span><span class="amt"></span><span class="track"><span class="fill"></span></span>`;
+    b.querySelector(".dot").style.background=colorOf(c);
+    b.querySelector(".name span").textContent=c.name;
+    b.querySelector(".amt").innerHTML=`${money.format(sum)}<span class="pct">${Math.round(sum/total*100)}%</span>`;
+    const f=b.querySelector(".fill");f.style.background=colorOf(c);f.style.width=(sum/max*100)+"%";
+    if(prevBy){
+      const s=document.createElement("span");s.className="sub";
+      if(prevBy[id])s.innerHTML=`Έναντι προηγούμενου έτους: ${deltaHtml(sum,prevBy[id])}`;
+      else s.textContent="Νέα κατηγορία φέτος";
+      b.appendChild(s);
+    }
+    el.appendChild(b);out.push([id,b]);
+  }
+  return out;
+}
+
+/* ---------- views ---------- */
+function render(){state.view==="y"?renderYear():renderMonth()}
+function setView(v){
+  state.view=v;
+  $("tabM").classList.toggle("on",v==="m");$("tabM").setAttribute("aria-selected",v==="m");
+  $("tabY").classList.toggle("on",v==="y");$("tabY").setAttribute("aria-selected",v==="y");
+  $("main").hidden=v!=="m";$("yearView").hidden=v!=="y";
+  render();
+}
+function renderMonth(){
+  const m=state.month, items=monthItems();
+  $("monthName").textContent=`${MONTHS[m.getMonth()]} ${m.getFullYear()}`;
+  const total=sumOf(items);
+  $("monthTotal").textContent=money.format(total);
+  $("monthMeta").textContent=items.length?plural(items.length):"";
+  const cmp=$("monthCmp");cmp.textContent="";
+  if(items.length){
+    const pm=new Date(m.getFullYear(),m.getMonth()-1,1);
+    cmpLine(cmp,`Έναντι ${MONTHS_GEN[pm.getMonth()]}`,total,sumOf(inRange(...monthRange(pm.getFullYear(),pm.getMonth()))));
+    cmpLine(cmp,`Έναντι ${MONTHS_SHORT[m.getMonth()]} ${m.getFullYear()-1}`,total,sumOf(inRange(...monthRange(m.getFullYear()-1,m.getMonth()))));
+  }
+  rankList($("top10m"),items);
+  const bars=$("bars");bars.textContent="";
+  const rows=byCat(items);
+  if(!rows.length){const e=document.createElement("div");e.className="guess";e.textContent="Τα σύνολα ανά κατηγορία θα εμφανιστούν εδώ.";bars.appendChild(e)}
+  const max=rows.length?rows[0][1]:1;
+  for(const [id,sum] of rows){
+    const c=catById(id);
+    const b=document.createElement("button");b.type="button";b.className="bar"+(state.filter===id?" on":"");
+    b.innerHTML=`<span class="name"><i class="dot"></i><span></span></span><span class="amt"></span><span class="track"><span class="fill"></span></span>`;
+    b.querySelector(".dot").style.background=colorOf(c);
+    b.querySelector(".name span").textContent=c.name;
+    b.querySelector(".amt").innerHTML=`${money.format(sum)}<span class="pct">${Math.round(sum/total*100)}%</span>`;
+    const f=b.querySelector(".fill");f.style.background=colorOf(c);f.style.width=(sum/max*100)+"%";
+    b.onclick=()=>{state.filter=state.filter===id?null:id;render()};
+    bars.appendChild(b);
+  }
+  renderList(items);
+}
+function renderList(all){
+  const list=$("list");list.textContent="";
+  const items=all.filter(x=>!state.filter||catById(x.catId).id===state.filter);
+  const fi=$("filterInfo");fi.textContent="";
+  if(state.filter){
+    const s=document.createElement("span");s.textContent=catById(state.filter).name+" ";
+    const b=document.createElement("button");b.className="linkbtn";b.textContent="Όλες";b.onclick=()=>{state.filter=null;render()};
+    fi.append(s,b);
+  }
+  if(!items.length){
+    list.innerHTML=`<div class="empty"><b>Δεν υπάρχουν έξοδα ${state.filter?"σε αυτή την κατηγορία":"αυτόν τον μήνα"}</b><span>Πατήστε το μικρόφωνο και πείτε π.χ. «καφές 2,5 ευρώ».</span></div>`;
+    return;
+  }
+  const days={};for(const x of items)(days[x.date]=days[x.date]||[]).push(x);
+  for(const date of Object.keys(days).sort().reverse()){
+    const d=fromYmd(date),arr=days[date];
+    const box=document.createElement("div");box.className="day";
+    const h=document.createElement("div");h.className="dayhead";
+    h.innerHTML=`<span></span><span></span>`;
+    h.children[0].textContent=`${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`;
+    h.children[1].textContent=money.format(arr.reduce((s,x)=>s+x.amount,0));
+    box.appendChild(h);
+    for(const x of arr){
+      const c=catById(x.catId);
+      const r=document.createElement("button");r.type="button";r.className="row";
+      r.innerHTML=`<i class="dot"></i><span class="d"><b></b><small></small></span><span class="a"></span>`;
+      r.querySelector(".dot").style.background=colorOf(c);
+      r.querySelector("b").textContent=x.desc;
+      r.querySelector("small").textContent=c.name;
+      r.querySelector(".a").textContent=money.format(x.amount);
+      r.onclick=()=>{state.openId=state.openId===x.id?null:x.id;render()};
+      box.appendChild(r);
+      if(state.openId===x.id)box.appendChild(editor(x));
+    }
+    list.appendChild(box);
+  }
+}
+function renderYear(){
+  const y=state.year, items=yearItems(y), prev=yearItems(y-1), total=sumOf(items), prevTotal=sumOf(prev);
+  const now=new Date(), isCurrent=y===now.getFullYear();
+  $("yearName").textContent=String(y);
+  $("yearTotal").textContent=money.format(total);
+  const months=isCurrent?now.getMonth()+1:y<now.getFullYear()?12:0;
+  $("yearMeta").textContent=items.length?`${plural(items.length)} · ${money.format(total/Math.max(months,1))} τον μήνα κατά μέσο όρο`:"";
+
+  // year-over-year: the whole previous year, and for the running year also the same period last year
+  const cmp=$("yearCmp");cmp.textContent="";
+  if(items.length){
+    cmpLine(cmp,`Έναντι ${y-1} (όλο το έτος)`,total,prevTotal);
+    if(isCurrent){
+      const sameDay=ymd(new Date(y-1,now.getMonth(),now.getDate()));
+      cmpLine(cmp,`Έναντι ίδιας περιόδου ${y-1} (έως ${now.getDate()}/${now.getMonth()+1})`,total,sumOf(inRange(`${y-1}-01-01`,sameDay)));
+    }
+  }
+
+  // monthly chart, this year against the previous one
+  const cur=Array(12).fill(0),old=Array(12).fill(0);
+  for(const x of items)cur[+x.date.slice(5,7)-1]+=x.amount;
+  for(const x of prev)old[+x.date.slice(5,7)-1]+=x.amount;
+  const max=Math.max(...cur,...old,1);
+  const chart=$("chart");chart.textContent="";
+  for(let i=0;i<12;i++){
+    const c=document.createElement("button");c.type="button";c.className="c";
+    c.title=`${MONTHS[i]} ${y}: ${money.format(cur[i])} · ${y-1}: ${money.format(old[i])}`;
+    c.setAttribute("aria-label",c.title);
+    c.innerHTML=`<span class="bb"><span class="b prev"></span><span class="b cur"></span></span><small>${MONTHS_SHORT[i]}</small>`;
+    c.querySelector(".prev").style.height=(old[i]/max*100)+"%";
+    c.querySelector(".cur").style.height=(cur[i]/max*100)+"%";
+    c.onclick=()=>{state.month=new Date(y,i,1);state.filter=null;state.openId=null;setView("m")};
+    chart.appendChild(c);
+  }
+  $("lgCur").textContent=String(y);$("lgPrev").textContent=String(y-1);
+
+  // categories of the year with change against the previous year
+  const prevBy=Object.fromEntries(byCat(prev));
+  for(const [id,b] of catBars($("yBars"),byCat(items),total,prev.length?prevBy:null))
+    b.onclick=()=>{state.month=new Date(y,isCurrent?now.getMonth():11,1);state.filter=id;setView("m")};
+
+  rankList($("top10y"),items);
+
+  // top 3 categories of each month, newest first
+  const t3=$("top3m");t3.textContent="";
+  const monthsWithData=[...new Set(items.map(x=>+x.date.slice(5,7)-1))].sort((a,b)=>b-a);
+  if(!monthsWithData.length)t3.innerHTML=`<div class="guess">Δεν υπάρχουν ακόμη δαπάνες σε αυτό το έτος.</div>`;
+  for(const mi of monthsWithData){
+    const mItems=inRange(...monthRange(y,mi)),mt=sumOf(mItems);
+    const box=document.createElement("div");box.className="mtop";
+    box.innerHTML=`<div class="h"><span></span><span></span></div><div class="chips"></div>`;
+    box.querySelector(".h span").textContent=MONTHS[mi];
+    box.querySelector(".h span:last-child").textContent=money.format(mt);
+    topChips(box.querySelector(".chips"),byCat(mItems).slice(0,3),mt);
+    t3.appendChild(box);
+  }
+
+  // every year on record
+  const yearsBox=$("years");yearsBox.textContent="";
+  const years=[...new Set(state.expenses.map(x=>+x.date.slice(0,4)))].sort((a,b)=>b-a);
+  if(!years.length)yearsBox.innerHTML=`<div class="guess">Τα σύνολα κάθε έτους θα εμφανιστούν εδώ.</div>`;
+  for(const yy of years){
+    const yi=yearItems(yy),yt=sumOf(yi),pt=sumOf(yearItems(yy-1));
+    const box=document.createElement("div");box.className="mtop";
+    box.innerHTML=`<div class="h"><span></span><span></span></div><div class="cmp"></div><div class="chips"></div>`;
+    box.querySelector(".h span").textContent=String(yy)+(yy===now.getFullYear()?" (σε εξέλιξη)":"");
+    box.querySelector(".h span:last-child").textContent=money.format(yt);
+    if(pt)box.querySelector(".cmp").innerHTML=`<span>Έναντι ${yy-1}: ${deltaHtml(yt,pt)}</span>`;
+    topChips(box.querySelector(".chips"),byCat(yi).slice(0,3),yt);
+    yearsBox.appendChild(box);
+  }
+}
+function topChips(el,rows,total){
+  rows.forEach(([id,sum],i)=>{
+    const c=catById(id);
+    const s=document.createElement("span");s.className="chipc";
+    s.innerHTML=`<span class="n">${i+1}.</span><i class="dot"></i><span></span><b></b>`;
+    s.querySelector(".dot").style.background=colorOf(c);
+    s.querySelector("span:not(.n)").textContent=c.name;
+    s.querySelector("b").textContent=`${money.format(sum)} · ${Math.round(sum/total*100)}%`;
+    el.appendChild(s);
+  });
+}
+function editor(x){
+  const e=document.createElement("div");e.className="edit";
+  e.innerHTML=`<label class="wide">Περιγραφή<input class="field" id="eDesc" type="text"></label>
+    <label>Ποσό (€)<input class="field amount" id="eAmount" type="text" inputmode="decimal"></label>
+    <label>Ημερομηνία<input class="field" id="eDate" type="date"></label>
+    <label class="wide">Κατηγορία<select class="field" id="eCat"></select></label>
+    <div class="actions"><button class="btn danger" type="button" id="eDel">Διαγραφή</button><button class="btn primary" type="button" id="eSave">Αποθήκευση</button></div>`;
+  e.querySelector("#eDesc").value=x.desc;
+  e.querySelector("#eAmount").value=fmtInput(x.amount);
+  e.querySelector("#eDate").value=x.date;
+  fillCatSelect(e.querySelector("#eCat"),catById(x.catId).id);
+  const del=e.querySelector("#eDel");
+  del.onclick=()=>{
+    if(!del.classList.contains("armed")){del.classList.add("armed");del.textContent="Επιβεβαίωση διαγραφής";return}
+    state.openId=null;enqueue({op:"delete",id:x.id});toast("Διαγράφηκε");
+  };
+  e.querySelector("#eSave").onclick=()=>{
+    const amount=parseMoneyInput(e.querySelector("#eAmount").value);
+    if(amount===null||amount<=0){toast("Συμπληρώστε ποσό");return}
+    const catId=e.querySelector("#eCat").value, desc=e.querySelector("#eDesc").value.trim()||catById(catId).name;
+    if(catId!==catById(x.catId).id&&catId!=="other")learn(desc,catId);
+    state.openId=null;
+    enqueue({op:"update",exp:{...x,desc,amount,catId,date:e.querySelector("#eDate").value||x.date}});
+    toast("Αποθηκεύτηκε");
+  };
+  return e;
+}
+
+/* ---------- settings ---------- */
+let draftCats=[];
+function renderCats(){
+  const box=$("cats");box.textContent="";
+  draftCats.forEach((c,i)=>{
+    const row=document.createElement("div");row.className="cat";
+    row.innerHTML=`<button type="button" class="swatch" aria-label="Αλλαγή χρώματος"></button><input class="field" type="text" aria-label="Όνομα κατηγορίας"><button type="button" class="btn danger">Αφαίρεση</button><textarea class="field" aria-label="Λέξεις-κλειδιά"></textarea>`;
+    const [sw,name,rm,kw]=row.children;
+    sw.style.background=colorOf(c);
+    sw.onclick=()=>{c.color=(c.color+1)%COLORS.length;sw.style.background=colorOf(c)};
+    name.id="cn-"+c.id;name.value=c.name;name.oninput=()=>c.name=name.value;
+    kw.id="ck-"+c.id;kw.value=c.kw.join(", ");kw.placeholder=c.id==="other"?"Ό,τι δεν ταιριάζει αλλού":"λέξεις χωρισμένες με κόμμα";
+    kw.oninput=()=>c.kw=splitKw(kw.value);
+    if(c.id==="other")rm.hidden=true;
+    rm.onclick=()=>{
+      if(!rm.classList.contains("armed")){rm.classList.add("armed");rm.textContent="Σίγουρα;";return}
+      draftCats.splice(i,1);renderCats();
+    };
+    box.appendChild(row);
+  });
+}
+function openSettings(){
+  draftCats=JSON.parse(JSON.stringify(state.cats));renderCats();
+  $("cUrl").value=state.conf.url;$("cToken").value=state.conf.token;$("cResult").textContent="";
+  $("settings").hidden=false;$("main").hidden=true;$("yearView").hidden=true;$("tabs").hidden=true;window.scrollTo(0,0);
+}
+function closeSettings(){$("settings").hidden=true;$("tabs").hidden=false;setView(state.view)}
+$("openSettings").onclick=openSettings;$("goSync").onclick=openSettings;$("status").onclick=()=>{state.conf.url?sync():openSettings()};
+$("closeSettings").onclick=closeSettings;
+$("addCat").onclick=()=>{const o=draftCats.findIndex(c=>c.id==="other");draftCats.splice(o<0?draftCats.length:o,0,{id:"c"+newId(),name:"Νέα κατηγορία",color:draftCats.length%COLORS.length,kw:[]});renderCats()};
+$("saveCats").onclick=()=>{
+  state.cats=draftCats.map(c=>({...c,name:c.name.trim()||"Χωρίς όνομα"}));
+  state.queue=state.queue.filter(o=>o.op!=="cats");
+  enqueue({op:"cats",cats:state.cats});
+  toast("Οι κατηγορίες αποθηκεύτηκαν");closeSettings();
+};
+$("cSave").onclick=async()=>{
+  const url=$("cUrl").value.trim(), token=$("cToken").value.trim();
+  if(url&&!/^https:\/\/script\.google(usercontent)?\.com\//.test(url)){$("cResult").textContent="Η διεύθυνση πρέπει να ξεκινά με https://script.google.com/";return}
+  state.conf={url,token};persist();
+  if(!url){setStatus("local");$("cResult").textContent="Ο συγχρονισμός απενεργοποιήθηκε.";return}
+  $("cResult").textContent="Σύνδεση…";
+  const ok=await sync();
+  $("cResult").textContent=ok?`Συνδέθηκε. Στο φύλλο υπάρχουν ${state.expenses.length} καταχωρίσεις.`:
+    state.sync==="badtoken"?"Ο κωδικός συγχρονισμού δεν είναι σωστός.":"Η σύνδεση απέτυχε. Ελέγξτε τη διεύθυνση και ότι η εφαρμογή ιστού έχει πρόσβαση «Οποιοσδήποτε».";
+  if(ok)draftCats=JSON.parse(JSON.stringify(state.cats)),renderCats();
+};
+
+/* ---------- export ---------- */
+function exportCsv(all){
+  const items=(all?[...state.expenses]:monthItems()).sort((a,b)=>a.date.localeCompare(b.date)||(a.createdAt||0)-(b.createdAt||0));
+  const q=v=>`"${String(v).replace(/"/g,'""')}"`;
+  const lines=["Ημερομηνία;Κατηγορία;Περιγραφή;Ποσό"].concat(items.map(x=>{const d=fromYmd(x.date);return [`${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`,q(catById(x.catId).name),q(x.desc),x.amount.toFixed(2).replace(".",",")].join(";")}));
+  const m=state.month;
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"}));
+  a.download=all?"tefteri-ola.csv":`tefteri-${m.getFullYear()}-${String(m.getMonth()+1).padStart(2,"0")}.csv`;
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+}
+
+/* ---------- wiring ---------- */
+$("say").addEventListener("input",updatePreview);
+$("sayForm").addEventListener("submit",e=>{e.preventDefault();if($("say").value.trim())saveNew()});
+$("pSave").onclick=saveNew;
+$("pClear").onclick=()=>{$("say").value="";updatePreview()};
+$("prevM").onclick=()=>{state.month=new Date(state.month.getFullYear(),state.month.getMonth()-1,1);state.filter=null;state.openId=null;render()};
+$("nextM").onclick=()=>{state.month=new Date(state.month.getFullYear(),state.month.getMonth()+1,1);state.filter=null;state.openId=null;render()};
+$("tabM").onclick=()=>setView("m");
+$("tabY").onclick=()=>{state.year=state.month.getFullYear();setView("y")};
+$("prevY").onclick=()=>{state.year--;render()};
+$("nextY").onclick=()=>{state.year++;render()};
+$("expMonth").onclick=()=>exportCsv(false);
+$("expAll").onclick=()=>exportCsv(true);
+if("serviceWorker" in navigator&&location.protocol!=="file:")navigator.serviceWorker.register("sw.js").catch(()=>{});
+render();setStatus(state.conf.url?"busy":"local");sync();
+</script>
+</body>
+</html>
